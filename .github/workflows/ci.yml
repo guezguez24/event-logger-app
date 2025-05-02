@@ -5,55 +5,32 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      # Install Docker
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # Install Docker Compose
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name)/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-
-      # Build the Docker images
-      - name: Build Docker images
-        run: docker-compose -f docker-compose.yml build
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: ⬇️ Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm install
+    - name: ⚙️ Set up Docker Compose
+      uses: ndeloof/install-compose-action@v1
 
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
+    - name: 🏗️ Build containers
+      run: docker compose -f docker-compose.yml build
 
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm install
+    - name: 🚀 Run containers
+      run: docker compose -f docker-compose.yml up -d
 
-      - name: Lint + Test backend (optional if you add tests later)
-        working-directory: backend
-        run: echo "No tests defined yet"
+    - name: 🧪 Test backend endpoint
+      run: |
+        sleep 10 # wait for containers to initialize
+        curl --fail http://localhost:5000/api/incidents
 
-      - name: Docker Compose Build
-        run: docker-compose -f docker-compose.yml build
+    - name: 🧼 Stop containers
+      if: always()
+      run: docker compose -f docker-compose.yml down
